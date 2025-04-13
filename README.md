@@ -2,7 +2,7 @@
 
 ## ERD Diagram
 
-Below is the Entity-Relationship Diagram (ERD) for the User Service, which includes the `user`, `otp`, and `jwt` tables.
+the Entity-Relationship Diagram (ERD) for the User Service, which includes the `user`, `otp`, and `jwt` tables.
 
 ```mermaid
 erDiagram
@@ -34,7 +34,7 @@ erDiagram
 
 ```
 
-# Create the database
+# SQL Script
 CREATE DATABASE user_service;
 USE user_service;
 
