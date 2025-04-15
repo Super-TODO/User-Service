@@ -11,57 +11,30 @@ erDiagram
 
     USER {
         bigint id PK
-        varchar email UK
-        varchar password
+        varchar(255) email UNIQUE NOT NULL
+        varchar password NOT NULL
         boolean enabled
+        datetime created_at DEFAULT CURRENT_TIMESTAMP
+        datetime updated_at ON UPDATE CURRENT_TIMESTAMP
     }
 
     OTP {
         bigint id PK
-        varchar otp
-        datetime expiration_time
+        varchar(10) otp NOT NULL
+        datetime expiration_time NOT NULL
+        datetime created_at DEFAULT CURRENT_TIMESTAMP
         bigint user_id FK
     }
 
     JWT {
         bigint id PK
-        text token
+        text token NOT NULL
         bigint user_id FK
-        datetime created_at
-        datetime expiration_date
-        varchar token_type
+        datetime created_at DEFAULT CURRENT_TIMESTAMP
+        datetime expiration_date NOT NULL
+        varchar(20) token_type
+        boolean is_expired DEFAULT FALSE
+        boolean is_revoked DEFAULT FALSE
     }
-
 ```
-
-# SQL Script
-CREATE DATABASE user_service;
-USE user_service;
-
--- Create User table
-CREATE TABLE user (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    enabled BOOLEAN DEFAULT FALSE
-);
-
--- Create OTP table
-CREATE TABLE otp (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    otp VARCHAR(6) NOT NULL,
-    expiration_time DATETIME NOT NULL,
-    user_id BIGINT,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
-);
-
--- Create JWT table
-CREATE TABLE jwt (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    token TEXT NOT NULL,
-    user_id BIGINT,
-    created_at DATETIME NOT NULL,
-    expiration_date DATETIME NOT NULL,
-    token_type VARCHAR(50) NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
-);
+ذذذ
