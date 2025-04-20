@@ -42,12 +42,6 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-
-
-
-
-
-
     // PasswordEncoder bean to encode passwords
     @Bean
     public PasswordEncoder passwordEncoder() {

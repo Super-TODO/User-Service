@@ -4,9 +4,12 @@ import com.spring.userservice.Repository.JwtTokenRepository;
 import com.spring.userservice.Repository.UserRepository;
 import com.spring.userservice.dto.AuthResponseDTO;
 import com.spring.userservice.dto.LoginRequestDTO;
+import com.spring.userservice.dto.RefreshTokenRequestDTO;
 import com.spring.userservice.dto.RegisterRequestDTO;
 import com.spring.userservice.entity.JwtToken;
 import com.spring.userservice.entity.User;
+import com.spring.userservice.utils.TokenType;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -56,21 +59,86 @@ public class AuthService {
 
     private AuthResponseDTO getAuthResponseDTO(User user) {
         String accessToken = jwtService.generateToken(user);
-        Date expiresAt = jwtService.extractExpiration(accessToken);
+        String refreshToken = jwtService.generateRefreshToken(user);
+        Date accessTokenEXP = jwtService.extractExpiration(accessToken);
+        Date refreshTokenEXP = jwtService.extractExpiration(refreshToken);
 
         JwtToken jwtToken = JwtToken.builder()
                 .token(accessToken)
-                .tokenType("Bearer")
+                .tokenType(TokenType.ACCESS)
                 .isExpired(false)
                 .isRevoked(false)
-                .expiredAt(expiresAt)
+                .expiredAt(accessTokenEXP)
+                .user(user)
+                .build();
+
+        JwtToken refresh_Token = JwtToken.builder()
+                .token(refreshToken)
+                .tokenType(TokenType.REFRESH)
+                .isExpired(false)
+                .isRevoked(false)
+                .expiredAt(refreshTokenEXP)
                 .user(user)
                 .build();
 
         jwtTokenRepository.save(jwtToken);
+        jwtTokenRepository.save(refresh_Token);
 
         return AuthResponseDTO.builder()
                 .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .build();
+    }
+
+    public AuthResponseDTO refreshToken(RefreshTokenRequestDTO request){
+        String refreshToken = request.getRefreshToken();
+        String email = jwtService.extractUsername(refreshToken);
+
+        // Check if the user exists
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("No user found with this email"));
+
+        JwtToken storedToken = jwtTokenRepository.findByToken(refreshToken);
+
+        // Check if the refresh token is valid
+        if (storedToken == null || storedToken.isExpired() || storedToken.isRevoked()) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
+
+        // generate new access token
+        String newAccessToken = jwtService.generateToken(user);
+        Date newAccessEXP = jwtService.extractExpiration(newAccessToken);
+
+        JwtToken newAccess_Token= JwtToken.builder()
+                .token(newAccessToken)
+                .tokenType(TokenType.ACCESS)
+                .isExpired(false)
+                .isRevoked(false)
+                .expiredAt(newAccessEXP)
+                .user(user)
+                .build();
+        jwtTokenRepository.save(newAccess_Token);
+
+        return AuthResponseDTO.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    public void logout(HttpServletRequest request) {
+        final String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return;
+        }
+
+        String token = authHeader.substring(7);
+        JwtToken storedToken = jwtTokenRepository.findByToken(token);
+
+        if (storedToken != null && !storedToken.isRevoked() && !storedToken.isExpired()) {
+            storedToken.setRevoked(true);
+            storedToken.setExpired(true);
+            jwtTokenRepository.save(storedToken);
+        }
     }
 }

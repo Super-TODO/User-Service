@@ -1,6 +1,7 @@
 package com.spring.userservice.entity;
 
 
+import com.spring.userservice.utils.TokenType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -21,7 +22,9 @@ public class JwtToken {
     private Long id;
     @Column(nullable = false)
     private String token;
-    private String tokenType;
+
+    @Enumerated(EnumType.STRING)
+    private TokenType tokenType;
     @CreationTimestamp
     private Date createdAt;
     private Date expiredAt;

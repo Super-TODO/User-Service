@@ -10,14 +10,15 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.function.Function;
 
 @Service
 public class JwtService {
 
-    private final Date expirationDate = new Date(System.currentTimeMillis() + 1000 * 60 * 60); // 1 ساعة
+    private final Date access_token_expirationDate = new Date(System.currentTimeMillis() + 1000 * 60 * 60);
+    private final Date refresh_token_expirationDate = new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7);
+
     @Value("${jwt.secret}")
     private String secret_key;
 
@@ -25,7 +26,15 @@ public class JwtService {
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(expirationDate)
+                .setExpiration(access_token_expirationDate)
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+    public String generateRefreshToken(UserDetails userDetails) {
+        return Jwts.builder()
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(refresh_token_expirationDate)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -42,6 +51,7 @@ public class JwtService {
     public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
+
 
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
@@ -63,4 +73,5 @@ public class JwtService {
     private Key getSignInKey() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret_key));
     }
+
 }

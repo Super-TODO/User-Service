@@ -1,6 +1,8 @@
 package com.spring.userservice.security;
 
+import com.spring.userservice.Repository.JwtTokenRepository;
 import com.spring.userservice.Repository.UserRepository;
+import com.spring.userservice.entity.JwtToken;
 import com.spring.userservice.entity.User;
 import com.spring.userservice.service.JwtService;
 import jakarta.servlet.FilterChain;
@@ -23,6 +25,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final JwtTokenRepository jwtTokenRepository;
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
@@ -45,8 +48,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            JwtToken jwtToken=jwtTokenRepository.findByToken(jwt);
+            // Check if the JWT token is present in the database
+            if (jwtToken == null) {
+                throw new RuntimeException("Token not found");
+            }
+            // Check if the JWT token is revoked || expired
+            if (jwtToken.isRevoked() || jwtToken.isExpired()) {
+                throw new RuntimeException("Token is revoked or expired");
+            }
+
             // Check if the JWT token is valid
-            if (jwtService.isTokenValid(jwt,user)){
+            if (jwtService.isTokenValid(jwt,user) || jwtService.isTokenExpired(jwt) ) {
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
                                 user,

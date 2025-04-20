@@ -3,8 +3,10 @@ package com.spring.userservice.controller;
 
 import com.spring.userservice.dto.AuthResponseDTO;
 import com.spring.userservice.dto.LoginRequestDTO;
+import com.spring.userservice.dto.RefreshTokenRequestDTO;
 import com.spring.userservice.dto.RegisterRequestDTO;
 import com.spring.userservice.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +28,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody LoginRequestDTO request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponseDTO> refreshToken(@RequestBody RefreshTokenRequestDTO refreshToken) {
+        return ResponseEntity.ok(authService.refreshToken(refreshToken));
+    }
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request) {
+        authService.logout(request);
+        return ResponseEntity.ok("Logout successful. Token revoked.");
     }
 
 }
