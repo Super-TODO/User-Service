@@ -28,7 +28,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final JwtTokenRepository jwtTokenRepository;
     private final OtpRepository otpRepository;
-
+    private final EmailService emailService;
     public AuthResponseDTO register(RegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail()) || userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("User already exists with this email or username");
@@ -64,7 +64,10 @@ public class AuthService {
 
         // Save the OTP to the database
         otpRepository.save(otp);
-        System.out.println("Generated OTP for " + user.getEmail() + ": " + code);
+//        System.out.println("Generated OTP for " + user.getEmail() + ": " + code);
+        // Send the OTP to the user's email
+        emailService.sendOtpEmail(user.getEmail(), code);
+
     }
     public String verifyOtp(OtpVerificationRequestDTO request) {
         User user = userRepository.findByEmail(request.getEmail())
