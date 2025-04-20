@@ -15,14 +15,8 @@ public class EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
         message.setSubject("Your OTP Code - Hanin's App");
-        message.setText("""
-                Hello,
-
-                Your OTP code is: %s
-
-                This code will expire in 5 minutes.
-
-                Thank you!
+        message.setText(""" 
+                Your OTP code is:%s .This code will expire in 5 minutes;Thank you!
                 """.formatted(otpCode));
 
         mailSender.send(message);

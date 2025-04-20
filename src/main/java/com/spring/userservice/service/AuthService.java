@@ -65,6 +65,7 @@ public class AuthService {
         // Save the OTP to the database
         otpRepository.save(otp);
 //        System.out.println("Generated OTP for " + user.getEmail() + ": " + code);
+
         // Send the OTP to the user's email
         emailService.sendOtpEmail(user.getEmail(), code);
 
@@ -102,7 +103,8 @@ public class AuthService {
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword()))
             throw new BadCredentialsException("Incorrect password");
-
+        if (!user.isEnabled())
+            throw new IllegalArgumentException("Account not verified. Please verify your account first.");
         return getAuthResponseDTO(user);
     }
 
