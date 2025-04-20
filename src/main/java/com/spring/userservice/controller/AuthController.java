@@ -1,10 +1,7 @@
 package com.spring.userservice.controller;
 
 
-import com.spring.userservice.dto.AuthResponseDTO;
-import com.spring.userservice.dto.LoginRequestDTO;
-import com.spring.userservice.dto.RefreshTokenRequestDTO;
-import com.spring.userservice.dto.RegisterRequestDTO;
+import com.spring.userservice.dto.*;
 import com.spring.userservice.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +36,10 @@ public class AuthController {
     @GetMapping("/profile")
     public ResponseEntity<?> getUserProfile() {
         return ResponseEntity.ok(authService.getUserProfile());
+    }
+    @PostMapping("/verify")
+    public ResponseEntity<String> verifyAccount(@RequestBody OtpVerificationRequestDTO request) {
+        return ResponseEntity.ok(authService.verifyOtp(request));
     }
 
 }

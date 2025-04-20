@@ -1,9 +1,11 @@
 package com.spring.userservice.service;
 
 import com.spring.userservice.Repository.JwtTokenRepository;
+import com.spring.userservice.Repository.OtpRepository;
 import com.spring.userservice.Repository.UserRepository;
 import com.spring.userservice.dto.*;
 import com.spring.userservice.entity.JwtToken;
+import com.spring.userservice.entity.Otp;
 import com.spring.userservice.entity.User;
 import com.spring.userservice.utils.TokenType;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final JwtTokenRepository jwtTokenRepository;
+    private final OtpRepository otpRepository;
 
     public AuthResponseDTO register(RegisterRequestDTO request) {
         if (userRepository.existsByEmail(request.getEmail()) || userRepository.existsByUsername(request.getUsername())) {
@@ -34,13 +38,57 @@ public class AuthService {
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .enabled(true)
+                .enabled(false)
                 .build();
 
         userRepository.save(user);
 
-        return getAuthResponseDTO(user);
+        generateAndSaveOtpForUser(user);
+        return AuthResponseDTO.builder()
+                .accessToken(null)
+                .refreshToken(null)
+                .build();
     }
+
+
+    private void generateAndSaveOtpForUser(User user) {
+        String code = String.format("%06d",new Random().nextInt(999999));
+        LocalDateTime otpExpirationTime = LocalDateTime.now().plusMinutes(5);
+
+        // Create the OTP entity
+        Otp otp= Otp.builder()
+                .otpCode(code)
+                .expiredAt(otpExpirationTime)
+                .user(user)
+                .build();
+
+        // Save the OTP to the database
+        otpRepository.save(otp);
+        System.out.println("Generated OTP for " + user.getEmail() + ": " + code);
+    }
+    public String verifyOtp(OtpVerificationRequestDTO request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Otp otp = otpRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalArgumentException("No OTP found for this user"));
+
+        if (otp.getExpiredAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("OTP expired");
+        }
+
+        if (!otp.getOtpCode().equals(request.getOtpCode())) {
+            throw new IllegalArgumentException("Invalid OTP");
+        }
+
+        user.setEnabled(true);
+        userRepository.save(user);
+
+        otpRepository.delete(otp);
+
+        return "Account verified successfully!";
+    }
+
 
     public AuthResponseDTO login(LoginRequestDTO request) {
         User user = request.getEmail().contains("@")
@@ -133,7 +181,6 @@ public class AuthService {
                 .build();
     }
 
-
     // Method to revoke all tokens for a user
     private void revokeAllUserTokens(User user) {
         var validUserTokens = jwtTokenRepository.findAllValidTokenByUser(user.getId());
@@ -148,7 +195,7 @@ public class AuthService {
         jwtTokenRepository.saveAll(validUserTokens);
     }
 
-        public void logout(HttpServletRequest request) {
+   public void logout(HttpServletRequest request) {
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
