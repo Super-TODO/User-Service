@@ -2,16 +2,14 @@ package com.spring.userservice.service;
 
 import com.spring.userservice.Repository.JwtTokenRepository;
 import com.spring.userservice.Repository.UserRepository;
-import com.spring.userservice.dto.AuthResponseDTO;
-import com.spring.userservice.dto.LoginRequestDTO;
-import com.spring.userservice.dto.RefreshTokenRequestDTO;
-import com.spring.userservice.dto.RegisterRequestDTO;
+import com.spring.userservice.dto.*;
 import com.spring.userservice.entity.JwtToken;
 import com.spring.userservice.entity.User;
 import com.spring.userservice.utils.TokenType;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -125,7 +123,32 @@ public class AuthService {
                 .build();
     }
 
-    public void logout(HttpServletRequest request) {
+    public UserProfileDTO getUserProfile() {
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return UserProfileDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .enabled(user.isEnabled())
+                .build();
+    }
+
+
+    // Method to revoke all tokens for a user
+    private void revokeAllUserTokens(User user) {
+        var validUserTokens = jwtTokenRepository.findAllValidTokenByUser(user.getId());
+
+        if (validUserTokens.isEmpty())
+            return;
+
+        validUserTokens.forEach(token -> {
+            token.setExpired(true);
+            token.setRevoked(true);
+        });
+        jwtTokenRepository.saveAll(validUserTokens);
+    }
+
+        public void logout(HttpServletRequest request) {
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -133,12 +156,10 @@ public class AuthService {
         }
 
         String token = authHeader.substring(7);
-        JwtToken storedToken = jwtTokenRepository.findByToken(token);
+        String email = jwtService.extractUsername(token);
 
-        if (storedToken != null && !storedToken.isRevoked() && !storedToken.isExpired()) {
-            storedToken.setRevoked(true);
-            storedToken.setExpired(true);
-            jwtTokenRepository.save(storedToken);
-        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("No user found with this email"));
+        revokeAllUserTokens(user);
     }
 }

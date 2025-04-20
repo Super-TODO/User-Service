@@ -9,10 +9,7 @@ import com.spring.userservice.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -38,6 +35,10 @@ public class AuthController {
     public ResponseEntity<String> logout(HttpServletRequest request) {
         authService.logout(request);
         return ResponseEntity.ok("Logout successful. Token revoked.");
+    }
+    @GetMapping("/profile")
+    public ResponseEntity<?> getUserProfile() {
+        return ResponseEntity.ok(authService.getUserProfile());
     }
 
 }
