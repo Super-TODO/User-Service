@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Entity
 @Setter
@@ -22,8 +23,8 @@ public class JwtToken {
     private String token;
     private String tokenType;
     @CreationTimestamp
-    private LocalDateTime createdAt;
-    private LocalDateTime expiredAt;
+    private Date createdAt;
+    private Date expiredAt;
     boolean isExpired= false;
     boolean isRevoked= false;
 
