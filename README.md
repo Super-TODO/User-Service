@@ -37,4 +37,3 @@ erDiagram
         boolean is_revoked DEFAULT FALSE
     }
 ```
-ذذذ
