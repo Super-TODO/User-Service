@@ -1,10 +1,16 @@
 package com.spring.userservice.controller;
 
 
+import com.spring.userservice.Repository.JwtTokenRepository;
+import com.spring.userservice.Repository.UserRepository;
 import com.spring.userservice.dto.*;
+import com.spring.userservice.entity.JwtToken;
+import com.spring.userservice.entity.User;
 import com.spring.userservice.service.AuthService;
+import com.spring.userservice.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +20,9 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtTokenRepository jwtTokenRepository;
+    private final UserRepository userRepository;
+    private final JwtService jwtService;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponseDTO> register(@RequestBody RegisterRequestDTO request) {
@@ -39,6 +48,31 @@ public class AuthController {
     @PostMapping("/verify")
     public ResponseEntity<String> verifyAccount(@RequestBody OtpVerificationRequestDTO request) {
         return ResponseEntity.ok(authService.verifyOtp(request));
+    }
+    @GetMapping("/validate-token")
+    public ResponseEntity<Void> validateToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String token = authHeader.substring(7);
+        String email = jwtService.extractUsername(token);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        JwtToken jwtToken = jwtTokenRepository.findByToken(token);
+
+        if (jwtToken == null || jwtToken.isExpired() || jwtToken.isRevoked()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (!jwtService.isTokenValid(token, user)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        return ResponseEntity.ok().build();
     }
 
 }
