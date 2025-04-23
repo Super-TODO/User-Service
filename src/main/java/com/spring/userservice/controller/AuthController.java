@@ -9,6 +9,7 @@ import com.spring.userservice.entity.User;
 import com.spring.userservice.service.AuthService;
 import com.spring.userservice.service.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,15 +26,15 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(@RequestBody RegisterRequestDTO request) {
+    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request) {
         return ResponseEntity.ok(authService.register(request));
     }
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody LoginRequestDTO request) {
+    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody LoginRequestDTO request) {
         return ResponseEntity.ok(authService.login(request));
     }
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponseDTO> refreshToken(@RequestBody RefreshTokenRequestDTO refreshToken) {
+    public ResponseEntity<AuthResponseDTO> refreshToken(@Valid @RequestBody RefreshTokenRequestDTO refreshToken) {
         return ResponseEntity.ok(authService.refreshToken(refreshToken));
     }
     @PostMapping("/logout")
@@ -46,7 +47,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.getUserProfile());
     }
     @PostMapping("/verify")
-    public ResponseEntity<String> verifyAccount(@RequestBody OtpVerificationRequestDTO request) {
+    public ResponseEntity<String> verifyAccount(@Valid @RequestBody OtpVerificationRequestDTO request) {
         return ResponseEntity.ok(authService.verifyOtp(request));
     }
     @GetMapping("/validate-token")

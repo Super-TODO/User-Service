@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.Map;
 import java.util.function.Function;
 
 @Service
@@ -22,14 +23,16 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret_key;
 
-    public String generateToken(UserDetails userDetails) {
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return Jwts.builder()
+                .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(access_token_expirationDate)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
+
     public String generateRefreshToken(UserDetails userDetails) {
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
@@ -52,7 +55,6 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
 
-
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
@@ -73,5 +75,4 @@ public class JwtService {
     private Key getSignInKey() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret_key));
     }
-
 }
