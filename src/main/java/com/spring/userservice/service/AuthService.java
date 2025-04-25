@@ -30,19 +30,30 @@ public class AuthService {
     private final EmailService emailService;
 
     public AuthResponseDTO register(RegisterRequestDTO request) {
-        if (userRepository.existsByEmail(request.getEmail()) || userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("User already exists with this email or username");
-        }
-        User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .enabled(false)
-                .build();
-        userRepository.save(user);
-        generateAndSaveOtpForUser(user);
-        return AuthResponseDTO.builder().accessToken(null).refreshToken(null).build();
+    if (userRepository.existsByEmail(request.getEmail())) {
+        throw new IllegalArgumentException("Email already exists");
     }
+
+    if (userRepository.existsByUsername(request.getUsername())) {
+        throw new IllegalArgumentException("Username already exists");
+    }
+
+    User user = User.builder()
+            .username(request.getUsername())
+            .email(request.getEmail())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .enabled(false)
+            .build();
+
+    userRepository.save(user);
+    generateAndSaveOtpForUser(user);
+
+    return AuthResponseDTO.builder()
+            .accessToken(null)
+            .refreshToken(null)
+            .build();
+}
+
 
     public void sendOtpToEmail(String email) {
         User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
