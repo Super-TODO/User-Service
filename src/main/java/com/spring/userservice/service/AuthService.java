@@ -16,10 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -36,35 +33,25 @@ public class AuthService {
         if (userRepository.existsByEmail(request.getEmail()) || userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("User already exists with this email or username");
         }
-
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .enabled(false)
                 .build();
-
         userRepository.save(user);
         generateAndSaveOtpForUser(user);
-
-        return AuthResponseDTO.builder()
-                .accessToken(null)
-                .refreshToken(null)
-                .build();
+        return AuthResponseDTO.builder().accessToken(null).refreshToken(null).build();
     }
 
-    private void generateAndSaveOtpForUser(User user) {
-        String code = String.format("%06d", new Random().nextInt(999999));
-        LocalDateTime otpExpirationTime = LocalDateTime.now().plusMinutes(5);
+    public void sendOtpToEmail(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        otpRepository.findByUser(user).ifPresent(otpRepository::delete);
+        generateAndSaveOtpForUser(user);
+    }
 
-        Otp otp = Otp.builder()
-                .otpCode(code)
-                .expiredAt(otpExpirationTime)
-                .user(user)
-                .build();
-
-        otpRepository.save(otp);
-        emailService.sendOtpEmail(user.getEmail(), code);
+    public void resendOtp(String email) {
+        sendOtpToEmail(email);
     }
 
     public String verifyOtp(OtpVerificationRequestDTO request) {
@@ -75,7 +62,9 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("No OTP found for this user"));
 
         if (otp.getExpiredAt().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("OTP expired");
+            otpRepository.delete(otp);
+            generateAndSaveOtpForUser(user);
+            throw new IllegalArgumentException("OTP expired, a new OTP has been sent to your email.");
         }
 
         if (!otp.getOtpCode().equals(request.getOtpCode())) {
@@ -89,127 +78,74 @@ public class AuthService {
         return "Account verified successfully!";
     }
 
+
     public AuthResponseDTO login(LoginRequestDTO request) {
         User user = request.getEmail().contains("@")
-                ? userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("No user found with this email"))
-                : userRepository.findByUsername(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("No user found with this username"));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword()))
-            throw new BadCredentialsException("Incorrect password");
-
-        if (!user.isEnabled())
-            throw new IllegalArgumentException("Account not verified. Please verify your account first.");
-
+                ? userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("No user found with this email"))
+                : userRepository.findByUsername(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("No user found with this username"));
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) throw new BadCredentialsException("Incorrect password");
+        if (!user.isEnabled()) throw new IllegalArgumentException("Account not verified. Please verify your account first.");
         return getAuthResponseDTO(user);
+    }
+
+    private void generateAndSaveOtpForUser(User user) {
+        String code = String.format("%06d", new Random().nextInt(999999));
+        LocalDateTime otpExpirationTime = LocalDateTime.now().plusMinutes(5);
+        Otp otp = Otp.builder().otpCode(code).expiredAt(otpExpirationTime).user(user).build();
+        otpRepository.save(otp);
+        emailService.sendOtpEmail(user.getEmail(), code);
     }
 
     private AuthResponseDTO getAuthResponseDTO(User user) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", user.getId());
-
         String accessToken = jwtService.generateToken(extraClaims, user);
         String refreshToken = jwtService.generateRefreshToken(user);
-
         Date accessTokenEXP = jwtService.extractExpiration(accessToken);
         Date refreshTokenEXP = jwtService.extractExpiration(refreshToken);
-
-        JwtToken jwtToken = JwtToken.builder()
-                .token(accessToken)
-                .tokenType(TokenType.ACCESS)
-                .isExpired(false)
-                .isRevoked(false)
-                .expiredAt(accessTokenEXP)
-                .user(user)
-                .build();
-
-        JwtToken refresh_Token = JwtToken.builder()
-                .token(refreshToken)
-                .tokenType(TokenType.REFRESH)
-                .isExpired(false)
-                .isRevoked(false)
-                .expiredAt(refreshTokenEXP)
-                .user(user)
-                .build();
-
+        JwtToken jwtToken = JwtToken.builder().token(accessToken).tokenType(TokenType.ACCESS).isExpired(false).isRevoked(false).expiredAt(accessTokenEXP).user(user).build();
+        JwtToken refresh_Token = JwtToken.builder().token(refreshToken).tokenType(TokenType.REFRESH).isExpired(false).isRevoked(false).expiredAt(refreshTokenEXP).user(user).build();
         jwtTokenRepository.save(jwtToken);
         jwtTokenRepository.save(refresh_Token);
-
-        return AuthResponseDTO.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
+        return AuthResponseDTO.builder().accessToken(accessToken).refreshToken(refreshToken).build();
     }
 
     public AuthResponseDTO refreshToken(RefreshTokenRequestDTO request) {
         String refreshToken = request.getRefreshToken();
         String email = jwtService.extractUsername(refreshToken);
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("No user found with this email"));
-
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("No user found with this email"));
         JwtToken storedToken = jwtTokenRepository.findByToken(refreshToken);
-        if (storedToken == null || storedToken.isExpired() || storedToken.isRevoked()) {
-            throw new IllegalArgumentException("Invalid refresh token");
-        }
-
+        if (storedToken == null || storedToken.isExpired() || storedToken.isRevoked()) throw new IllegalArgumentException("Invalid refresh token");
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", user.getId());
-
         String newAccessToken = jwtService.generateToken(extraClaims, user);
         Date newAccessEXP = jwtService.extractExpiration(newAccessToken);
-
-        JwtToken newAccess_Token = JwtToken.builder()
-                .token(newAccessToken)
-                .tokenType(TokenType.ACCESS)
-                .isExpired(false)
-                .isRevoked(false)
-                .expiredAt(newAccessEXP)
-                .user(user)
-                .build();
-
+        JwtToken newAccess_Token = JwtToken.builder().token(newAccessToken).tokenType(TokenType.ACCESS).isExpired(false).isRevoked(false).expiredAt(newAccessEXP).user(user).build();
         jwtTokenRepository.save(newAccess_Token);
-
-        return AuthResponseDTO.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshToken)
-                .build();
+        return AuthResponseDTO.builder().accessToken(newAccessToken).refreshToken(refreshToken).build();
     }
 
     public UserProfileDTO getUserProfile() {
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return UserProfileDTO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .enabled(user.isEnabled())
-                .build();
+        return UserProfileDTO.builder().id(user.getId()).username(user.getUsername()).email(user.getEmail()).enabled(user.isEnabled()).build();
     }
 
     private void revokeAllUserTokens(User user) {
         var validUserTokens = jwtTokenRepository.findAllValidTokenByUser(user.getId());
-
         if (validUserTokens.isEmpty()) return;
-
         validUserTokens.forEach(token -> {
             token.setExpired(true);
             token.setRevoked(true);
         });
-
         jwtTokenRepository.saveAll(validUserTokens);
     }
 
     public void logout(HttpServletRequest request) {
         final String authHeader = request.getHeader("Authorization");
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) return;
-
         String token = authHeader.substring(7);
         String email = jwtService.extractUsername(token);
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("No user found with this email"));
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("No user found with this email"));
         revokeAllUserTokens(user);
     }
 }

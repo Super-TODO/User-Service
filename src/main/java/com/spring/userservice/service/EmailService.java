@@ -14,10 +14,23 @@ public class EmailService {
     public void sendOtpEmail(String to, String otpCode) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
-        message.setSubject("Your OTP Code - Hanin's App");
-        message.setText(""" 
-                Your OTP code is:%s .This code will expire in 5 minutes;Thank you!
-                """.formatted(otpCode));
+        message.setSubject("Hanin's TODO App - Verify Your Email");
+        message.setText(
+                """
+                Hello,
+
+                Thank you for registering with Hanin's TODO App!
+                
+                Your One-Time Password (OTP) for email verification is: %s
+
+                This OTP is valid for only 5 minutes.
+
+                If you did not request this, please ignore this email.
+
+                Best regards,
+                Hanin's TODO App Team
+                """.formatted(otpCode)
+        );
 
         mailSender.send(message);
     }
