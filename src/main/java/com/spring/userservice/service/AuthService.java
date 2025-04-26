@@ -37,7 +37,6 @@ public class AuthService {
     if (userRepository.existsByUsername(request.getUsername())) {
         throw new IllegalArgumentException("Username already exists");
     }
-
     User user = User.builder()
             .username(request.getUsername())
             .email(request.getEmail())
